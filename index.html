@@ -1,164 +1,86 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 const STORAGE_KEY = "flow_accounts";
 
-const demoAccounts = [
+const defaultAccounts = [
   {
     id: 1,
-    name: "Flow AI - Account A",
-    email: "account-a@example.com",
-    password: "local-password",
-    credits: 120,
+    name: "Flow Main",
+    email: "main@example.com",
+    url: "https://flow.ai/login",
     status: "Online",
-    browser: "Chrome Profile 1",
-    url: "https://flow.ai",
   },
   {
     id: 2,
-    name: "Flow AI - Account B",
-    email: "account-b@example.com",
-    password: "local-password",
-    credits: 87,
-    status: "Online",
-    browser: "Chrome Profile 2",
-    url: "https://flow.ai",
-  },
-  {
-    id: 3,
-    name: "Flow AI - Account C",
-    email: "account-c@example.com",
-    password: "local-password",
-    credits: 41,
+    name: "Flow Backup",
+    email: "backup@example.com",
+    url: "https://flow.ai/login",
     status: "Offline",
-    browser: "Chrome Profile 3",
-    url: "https://flow.ai",
   },
 ];
 
-export default function FlowDashboard() {
-  const [accounts, setAccounts] = useState(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-
-      if (saved) {
-        return JSON.parse(saved);
-      }
-    } catch (error) {
-      console.error("Failed to load local accounts:", error);
-    }
-
-    return demoAccounts;
-  });
-
-  const [loading, setLoading] = useState(false);
-  const [lastSync, setLastSync] = useState(null);
-  const [errorMessage, setErrorMessage] = useState("");
-  const [showAddForm, setShowAddForm] = useState(false);
+export default function App() {
+  const [accounts, setAccounts] = useState(defaultAccounts);
+  const [showAdd, setShowAdd] = useState(false);
 
   const [newAccount, setNewAccount] = useState({
     name: "",
     email: "",
-    password: "",
-    credits: 0,
-    browser: "Chrome Profile",
+    url: "https://flow.ai/login",
     status: "Online",
-    url: "https://flow.ai",
   });
 
-  const GITHUB_USERNAME = "YOUR_GITHUB_USERNAME";
-  const REPO_NAME = "flow-dashboard";
-
-  const accountsUrl = useMemo(() => {
-    if (
-      !GITHUB_USERNAME ||
-      GITHUB_USERNAME === "YOUR_GITHUB_USERNAME"
-    ) {
-      return null;
-    }
-
-    return `https://raw.githubusercontent.com/${GITHUB_USERNAME}/${REPO_NAME}/main/public/accounts.json`;
-  }, [GITHUB_USERNAME]);
-
-  const fetchAccounts = async () => {
-    if (!accountsUrl) {
-      setErrorMessage(
-        "Using local browser storage. Add GitHub username for live sync."
-      );
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setErrorMessage("");
-
-      const response = await fetch(accountsUrl, {
-        cache: "no-cache",
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      if (!Array.isArray(data)) {
-        throw new Error("accounts.json must contain an array");
-      }
-
-      setAccounts(data);
-      setLastSync(new Date());
-    } catch (error) {
-      console.error("Failed to fetch accounts:", error);
-
-      setErrorMessage(
-        "Failed to sync GitHub accounts. Using local browser data instead."
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
+  // =========================
+  // LOAD LOCAL STORAGE
+  // =========================
 
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(accounts));
-    } catch (error) {
-      console.error("Failed to save local accounts:", error);
+    const saved = localStorage.getItem(STORAGE_KEY);
+
+    if (saved) {
+      setAccounts(JSON.parse(saved));
     }
+  }, []);
+
+  // =========================
+  // SAVE LOCAL STORAGE
+  // =========================
+
+  useEffect(() => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify(accounts)
+    );
   }, [accounts]);
 
-  useEffect(() => {
-    fetchAccounts();
+  // =========================
+  // OPEN FLOW
+  // =========================
 
-    const interval = setInterval(() => {
-      fetchAccounts();
-    }, 30000);
+  const openFlow = (account) => {
+    // เก็บ email ไว้ช่วย autofill (password ใช้ iPad Keychain)
+    localStorage.setItem(
+      "flow_last_email",
+      account.email
+    );
 
-    return () => clearInterval(interval);
-  }, [accountsUrl]);
-
-  const openFlow = (url) => {
-    if (!url) {
-      return;
-    }
-
-    window.open(url, "_blank", "noopener,noreferrer");
+    window.open(account.url, "_blank");
   };
 
+  // =========================
+  // ADD ACCOUNT
+  // =========================
+
   const addAccount = () => {
-    if (!newAccount.name || !newAccount.email) {
-      setErrorMessage("Please enter account name and email.");
+    if (!newAccount.name || !newAccount.email)
       return;
-    }
 
     const account = {
       id: Date.now(),
       name: newAccount.name,
       email: newAccount.email,
-      password: newAccount.password,
-      credits: Number(newAccount.credits || 0),
-      browser: newAccount.browser,
-      status: newAccount.status,
       url: newAccount.url,
+      status: newAccount.status,
     };
 
     setAccounts((prev) => [...prev, account]);
@@ -166,322 +88,139 @@ export default function FlowDashboard() {
     setNewAccount({
       name: "",
       email: "",
-      password: "",
-      credits: 0,
-      browser: "Chrome Profile",
+      url: "https://flow.ai/login",
       status: "Online",
-      url: "https://flow.ai",
     });
 
-    setShowAddForm(false);
-    setErrorMessage("");
+    setShowAdd(false);
   };
 
-  const removeAccount = (id) => {
-    setAccounts((prev) => prev.filter((account) => account.id !== id));
-  };
+  // =========================
+  // DELETE
+  // =========================
 
-  const totalCredits = accounts.reduce(
-    (sum, account) => sum + Number(account.credits || 0),
-    0
-  );
+  const deleteAccount = (id) => {
+    setAccounts((prev) =>
+      prev.filter((a) => a.id !== id)
+    );
+  };
 
   return (
     <div className="min-h-screen bg-black text-white p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-8">
-          <div>
-            <h1 className="text-4xl font-bold tracking-tight">
-              FLOW AI DASHBOARD
-            </h1>
 
-            <p className="text-zinc-400 mt-2">
-              Multi Account Control Panel
-            </p>
-          </div>
+      <div className="max-w-5xl mx-auto">
 
-          <div className="flex flex-wrap gap-4 items-center">
-            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-4 min-w-[140px]">
-              <div className="text-zinc-500 text-sm">Accounts</div>
+        {/* HEADER */}
+        <h1 className="text-4xl font-bold mb-6">
+          Flow AI Dashboard (iPad Mode)
+        </h1>
 
-              <div className="text-3xl font-bold mt-1">
-                {accounts.length}
-              </div>
-            </div>
+        {/* ADD BUTTON */}
+        <button
+          onClick={() =>
+            setShowAdd(!showAdd)
+          }
+          className="bg-white text-black px-5 py-3 rounded-2xl mb-6"
+        >
+          {showAdd
+            ? "Close"
+            : "Add Account"}
+        </button>
 
-            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-4 min-w-[180px]">
-              <div className="text-zinc-500 text-sm">Total Credits</div>
+        {/* ADD FORM */}
+        {showAdd && (
+          <div className="bg-zinc-900 p-5 rounded-2xl mb-6 space-y-3">
 
-              <div className="text-3xl font-bold mt-1">
-                {totalCredits}
-              </div>
-            </div>
+            <input
+              placeholder="Account Name"
+              value={newAccount.name}
+              onChange={(e) =>
+                setNewAccount({
+                  ...newAccount,
+                  name: e.target.value,
+                })
+              }
+              className="w-full p-3 rounded-xl bg-black border border-zinc-700"
+            />
+
+            <input
+              placeholder="Email"
+              value={newAccount.email}
+              onChange={(e) =>
+                setNewAccount({
+                  ...newAccount,
+                  email: e.target.value,
+                })
+              }
+              className="w-full p-3 rounded-xl bg-black border border-zinc-700"
+            />
 
             <button
-              onClick={() => setShowAddForm(!showAddForm)}
-              className="bg-white text-black px-5 py-3 rounded-2xl font-semibold hover:scale-[1.02] transition-transform"
+              onClick={addAccount}
+              className="bg-white text-black px-5 py-2 rounded-xl"
             >
-              {showAddForm ? "Close" : "Add Account"}
+              Save
             </button>
-          </div>
-        </div>
 
-        {errorMessage && (
-          <div className="mb-6 bg-yellow-500/10 border border-yellow-500/20 text-yellow-300 rounded-2xl px-5 py-4">
-            {errorMessage}
           </div>
         )}
 
-        {showAddForm && (
-          <div className="mb-8 bg-zinc-950 border border-zinc-800 rounded-3xl p-6">
-            <h2 className="text-2xl font-semibold mb-5">
-              Add Flow AI Account
-            </h2>
+        {/* ACCOUNTS */}
+        <div className="grid md:grid-cols-2 gap-5">
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <input
-                type="text"
-                placeholder="Account Name"
-                value={newAccount.name}
-                onChange={(e) =>
-                  setNewAccount({
-                    ...newAccount,
-                    name: e.target.value,
-                  })
-                }
-                className="bg-zinc-900 border border-zinc-700 rounded-2xl px-4 py-3 outline-none"
-              />
-
-              <input
-                type="email"
-                placeholder="Email"
-                value={newAccount.email}
-                onChange={(e) =>
-                  setNewAccount({
-                    ...newAccount,
-                    email: e.target.value,
-                  })
-                }
-                className="bg-zinc-900 border border-zinc-700 rounded-2xl px-4 py-3 outline-none"
-              />
-
-              <input
-                type="password"
-                placeholder="Password (stored locally only)"
-                value={newAccount.password}
-                onChange={(e) =>
-                  setNewAccount({
-                    ...newAccount,
-                    password: e.target.value,
-                  })
-                }
-                className="bg-zinc-900 border border-zinc-700 rounded-2xl px-4 py-3 outline-none"
-              />
-
-              <input
-                type="number"
-                placeholder="Credits"
-                value={newAccount.credits}
-                onChange={(e) =>
-                  setNewAccount({
-                    ...newAccount,
-                    credits: e.target.value,
-                  })
-                }
-                className="bg-zinc-900 border border-zinc-700 rounded-2xl px-4 py-3 outline-none"
-              />
-            </div>
-
-            <div className="flex gap-3 mt-5">
-              <button
-                onClick={addAccount}
-                className="bg-white text-black px-5 py-3 rounded-2xl font-semibold"
-              >
-                Save Account
-              </button>
-
-              <button
-                onClick={() => setShowAddForm(false)}
-                className="bg-zinc-900 border border-zinc-700 px-5 py-3 rounded-2xl"
-              >
-                Cancel
-              </button>
-            </div>
-
-            <div className="mt-4 text-zinc-500 text-sm leading-relaxed">
-              Account data is stored locally in this browser using localStorage.
-              For stronger security, use Chrome Profiles and Chrome Password
-              Manager.
-            </div>
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-          {accounts.map((account) => (
+          {accounts.map((acc) => (
             <div
-              key={account.id}
-              className="bg-zinc-950 border border-zinc-800 rounded-3xl p-6 shadow-2xl hover:border-zinc-600 transition-all"
+              key={acc.id}
+              className="bg-zinc-900 p-5 rounded-2xl"
             >
-              <div className="flex items-start justify-between gap-4 mb-5">
-                <div>
-                  <h2 className="text-2xl font-semibold break-words">
-                    {account.name}
-                  </h2>
 
-                  <div className="text-zinc-500 mt-1 text-sm">
-                    {account.browser}
-                  </div>
-                </div>
+              <h2 className="text-xl font-bold">
+                {acc.name}
+              </h2>
 
-                <div
-                  className={`px-3 py-1 rounded-full text-sm font-medium whitespace-nowrap ${
-                    account.status === "Online"
-                      ? "bg-green-500/20 text-green-400"
-                      : "bg-red-500/20 text-red-400"
-                  }`}
-                >
-                  {account.status}
-                </div>
-              </div>
+              <p className="text-zinc-400 text-sm mt-1">
+                {acc.email}
+              </p>
 
-              <div className="bg-zinc-900 rounded-2xl p-5 mb-6">
-                <div className="text-zinc-500 text-sm mb-2">
-                  Available Credits
-                </div>
+              <p className="text-green-400 mt-2 text-sm">
+                {acc.status}
+              </p>
 
-                <div className="text-5xl font-bold tracking-tight">
-                  {account.credits}
-                </div>
-              </div>
+              <div className="flex gap-3 mt-4">
 
-              <div className="bg-zinc-900 rounded-2xl p-4 mb-6 space-y-2 text-sm">
-                <div>
-                  <span className="text-zinc-500">Email:</span>{" "}
-                  {account.email}
-                </div>
-
-                <div>
-                  <span className="text-zinc-500">Password:</span>{" "}
-                  {account.password ? "••••••••" : "Not saved"}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
                 <button
-                  onClick={() => openFlow(account.url)}
-                  className="bg-white text-black font-semibold py-3 rounded-2xl hover:scale-[1.02] transition-transform"
+                  onClick={() =>
+                    openFlow(acc)
+                  }
+                  className="bg-white text-black px-4 py-2 rounded-xl"
                 >
                   Open
                 </button>
 
                 <button
-                  onClick={fetchAccounts}
-                  className="bg-zinc-900 border border-zinc-700 py-3 rounded-2xl hover:bg-zinc-800 transition-colors"
-                >
-                  Sync
-                </button>
-
-                <button
-                  onClick={() => removeAccount(account.id)}
-                  className="bg-red-500/20 text-red-400 border border-red-500/20 py-3 rounded-2xl hover:bg-red-500/30 transition-colors"
+                  onClick={() =>
+                    deleteAccount(acc.id)
+                  }
+                  className="bg-red-500/20 text-red-400 px-4 py-2 rounded-xl"
                 >
                   Delete
                 </button>
+
               </div>
+
             </div>
           ))}
+
         </div>
 
-        <div className="mt-10 bg-zinc-950 border border-zinc-800 rounded-3xl p-6">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-5">
-            <h2 className="text-2xl font-semibold">Activity Monitor</h2>
-
-            <div className="flex items-center gap-3">
-              {lastSync && (
-                <div className="text-zinc-500 text-sm">
-                  Last sync: {lastSync.toLocaleTimeString()}
-                </div>
-              )}
-
-              <button
-                onClick={fetchAccounts}
-                className="bg-zinc-900 border border-zinc-700 px-4 py-2 rounded-xl hover:bg-zinc-800"
-              >
-                {loading ? "Syncing..." : "Sync Now"}
-              </button>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            {accounts.map((account) => (
-              <div
-                key={`activity-${account.id}`}
-                className="bg-zinc-900 rounded-2xl p-4 flex items-center justify-between gap-4"
-              >
-                <div>
-                  <div className="font-medium">{account.name}</div>
-
-                  <div className="text-zinc-500 text-sm">
-                    {account.status === "Online"
-                      ? "Session active and synced"
-                      : "Currently offline"}
-                  </div>
-                </div>
-
-                <div
-                  className={`text-sm ${
-                    account.status === "Online"
-                      ? "text-green-400"
-                      : "text-red-400"
-                  }`}
-                >
-                  {account.status}
-                </div>
-              </div>
-            ))}
-          </div>
+        {/* INFO */}
+        <div className="mt-10 text-zinc-500 text-sm">
+          Password จะถูกเก็บใน iPad Browser (iCloud Keychain / Autofill)
+          ไม่ถูกเก็บใน Dashboard
         </div>
 
-        <div className="mt-6 bg-zinc-950 border border-zinc-800 rounded-3xl p-6">
-          <h3 className="text-xl font-semibold mb-4">
-            GitHub Setup Instructions
-          </h3>
-
-          <div className="space-y-3 text-zinc-400 text-sm leading-relaxed">
-            <p>
-              1. Replace
-              <span className="text-white">
-                {" "}YOUR_GITHUB_USERNAME
-              </span>
-              with your GitHub username.
-            </p>
-
-            <p>
-              2. Create
-              <span className="text-white">
-                {" "}/public/accounts.json
-              </span>
-            </p>
-
-            <p>3. Example JSON structure:</p>
-
-            <pre className="bg-black rounded-2xl p-4 overflow-auto text-xs text-green-400">
-{`[
-  {
-    "id": 1,
-    "name": "Flow AI - Main",
-    "email": "main@example.com",
-    "password": "local-password",
-    "credits": 120,
-    "status": "Online",
-    "browser": "Chrome Profile 1",
-    "url": "https://flow.ai"
-  }
-]`}
-            </pre>
-          </div>
-        </div>
       </div>
+
     </div>
   );
 }
