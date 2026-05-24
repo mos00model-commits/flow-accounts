@@ -1,686 +1,487 @@
-<!DOCTYPE html>
-<html lang="th">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Flow Accounts</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Thai:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
-<style>
-  :root {
-    --bg: #f7f6f3;
-    --surface: #ffffff;
-    --surface2: #f0ede8;
-    --border: rgba(0,0,0,0.1);
-    --border2: rgba(0,0,0,0.18);
-    --text: #1a1917;
-    --text2: #6b6860;
-    --text3: #a09d98;
-    --green: #1D9E75;
-    --green-bg: #E1F5EE;
-    --green-text: #085041;
-    --amber: #EF9F27;
-    --amber-bg: #FAEEDA;
-    --amber-text: #633806;
-    --red: #E24B4A;
-    --red-bg: #FCEBEB;
-    --red-text: #791F1F;
-    --radius: 10px;
-    --radius-sm: 6px;
-    --font-mono: 'IBM Plex Mono', monospace;
-    --font-ui: 'IBM Plex Sans Thai', sans-serif;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #151412;
-      --surface: #1e1c1a;
-      --surface2: #272421;
-      --border: rgba(255,255,255,0.1);
-      --border2: rgba(255,255,255,0.18);
-      --text: #f0ede8;
-      --text2: #9b9790;
-      --text3: #635f5a;
-      --green-bg: #0a2e22;
-      --green-text: #5DCAA5;
-      --amber-bg: #2e1f06;
-      --amber-text: #FAC775;
-      --red-bg: #2e0e0e;
-      --red-text: #F09595;
-    }
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  html { -webkit-text-size-adjust: 100%; }
-  body {
-    font-family: var(--font-ui);
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-    padding: 0;
-  }
+import { useEffect, useMemo, useState } from "react";
 
-  .page {
-    padding: 24px 32px 60px;
-  }
+const STORAGE_KEY = "flow_accounts";
 
-  /* TOP BAR */
-  .topbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 10px;
-    margin-bottom: 20px;
-    padding-bottom: 16px;
-    border-bottom: 0.5px solid var(--border);
-  }
-  .topbar-title {
-    font-family: var(--font-mono);
-    font-size: 13px;
-    font-weight: 500;
-    letter-spacing: .12em;
-    text-transform: uppercase;
-    color: var(--text2);
-    display: flex;
-    align-items: center;
-    gap: 7px;
-  }
-  .topbar-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-
-  .btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 9px 16px;
-    border-radius: var(--radius-sm);
-    border: 0.5px solid var(--border2);
-    background: transparent;
-    font-family: var(--font-mono);
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--text2);
-    cursor: pointer;
-    transition: background .15s, color .15s;
-    white-space: nowrap;
-    min-height: 40px;
-    -webkit-tap-highlight-color: transparent;
-  }
-  .btn:hover { background: var(--surface2); color: var(--text); }
-  .btn:active { transform: scale(.97); }
-  .btn.primary {
-    background: var(--text);
-    color: var(--bg);
-    border-color: var(--text);
-  }
-  .btn.primary:hover { opacity: .85; }
-  .btn.spinning .ti { animation: spin .6s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  /* SUMMARY */
-  .summary {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
-    gap: 8px;
-    margin-bottom: 16px;
-  }
-  .scard {
-    background: var(--surface);
-    border: 0.5px solid var(--border);
-    border-radius: var(--radius);
-    padding: 12px 14px;
-  }
-  .scard-num {
-    font-family: var(--font-mono);
-    font-size: 22px;
-    font-weight: 500;
-    color: var(--text);
-    line-height: 1.2;
-  }
-  .scard-lbl {
-    font-size: 11px;
-    letter-spacing: .06em;
-    text-transform: uppercase;
-    color: var(--text3);
-    margin-top: 3px;
-  }
-
-  /* REFRESH ROW */
-  .refresh-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 8px;
-    padding: 10px 14px;
-    background: var(--surface);
-    border: 0.5px solid var(--border);
-    border-radius: var(--radius);
-    margin-bottom: 20px;
-    font-family: var(--font-mono);
-    font-size: 11px;
-    color: var(--text3);
-  }
-  .refresh-left { display: flex; align-items: center; gap: 10px; }
-  .progress-track {
-    width: 90px;
-    height: 3px;
-    background: var(--border);
-    border-radius: 99px;
-    overflow: hidden;
-  }
-  .progress-fill {
-    height: 100%;
-    background: var(--green);
-    border-radius: 99px;
-    transition: width 1s linear;
-  }
-
-  /* GRID */
-  .grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-    gap: 12px;
-  }
-
-  /* CARD */
-  .card {
-    background: var(--surface);
-    border: 0.5px solid var(--border);
-    border-radius: var(--radius);
-    padding: 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    position: relative;
-    overflow: hidden;
-    transition: border-color .15s, transform .1s;
-    -webkit-tap-highlight-color: transparent;
-  }
-  .card:hover { border-color: var(--border2); transform: translateY(-1px); }
-  .card-accent {
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 3px;
-    border-radius: var(--radius) var(--radius) 0 0;
-  }
-  .flash-ov {
-    position: absolute;
-    inset: 0;
-    border-radius: var(--radius);
-    background: var(--green);
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity .15s;
-  }
-  .card.flash .flash-ov { opacity: .06; }
-
-  .card-head { display: flex; align-items: center; justify-content: space-between; }
-  .avatar {
-    width: 36px; height: 36px;
-    border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    font-family: var(--font-mono);
-    font-size: 12px; font-weight: 500;
-    flex-shrink: 0;
-  }
-  .card-status { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text3); }
-  .status-dot { width: 7px; height: 7px; border-radius: 50%; }
-
-  .card-name { font-size: 14px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .card-email { font-size: 11px; color: var(--text3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
-
-  /* CREDIT */
-  .credit-sec { display: flex; flex-direction: column; gap: 6px; }
-  .credit-row { display: flex; align-items: center; justify-content: space-between; }
-  .credit-lbl { font-family: var(--font-mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--text3); }
-  .credit-val { font-family: var(--font-mono); font-size: 13px; font-weight: 500; transition: color .4s; }
-  .bar-track { height: 4px; background: var(--surface2); border-radius: 99px; overflow: hidden; }
-  .bar-fill { height: 100%; border-radius: 99px; transition: width .7s cubic-bezier(.4,0,.2,1), background .4s; }
-  .credit-footer { display: flex; align-items: center; justify-content: space-between; }
-  .credit-pct { font-family: var(--font-mono); font-size: 10px; color: var(--text3); }
-  .delta { font-family: var(--font-mono); font-size: 10px; padding: 1px 6px; border-radius: 4px; font-weight: 500; opacity: 0; transition: opacity .3s; }
-  .delta.show { opacity: 1; }
-  .delta-up { background: var(--green-bg); color: var(--green-text); }
-  .delta-dn  { background: var(--red-bg);   color: var(--red-text);   }
-
-  /* CARD BUTTONS */
-  .card-actions { display: flex; gap: 6px; }
-  .login-btn {
-    flex: 1;
-    display: flex; align-items: center; justify-content: center; gap: 6px;
-    padding: 9px 0;
-    border-radius: var(--radius-sm);
-    border: 0.5px solid var(--border2);
-    background: transparent;
-    font-family: var(--font-mono);
-    font-size: 11px; font-weight: 500;
-    cursor: pointer; color: var(--text2);
-    transition: all .15s;
-    min-height: 40px;
-    -webkit-tap-highlight-color: transparent;
-  }
-  .login-btn:hover { background: var(--surface2); color: var(--text); }
-  .login-btn:active { transform: scale(.97); }
-  .icon-btn {
-    display: flex; align-items: center; justify-content: center;
-    width: 40px; height: 40px;
-    border-radius: var(--radius-sm);
-    border: 0.5px solid var(--border);
-    background: transparent;
-    color: var(--text3);
-    cursor: pointer;
-    transition: all .15s;
-    -webkit-tap-highlight-color: transparent;
-  }
-  .icon-btn:hover { background: var(--red-bg); color: var(--red-text); border-color: var(--red-text); }
-  .icon-btn:active { transform: scale(.97); }
-
-  /* MODAL */
-  .modal-overlay {
-    display: none;
-    position: fixed; inset: 0;
-    background: rgba(0,0,0,.45);
-    z-index: 100;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
-  }
-  .modal-overlay.open { display: flex; }
-  .modal {
-    background: var(--surface);
-    border: 0.5px solid var(--border2);
-    border-radius: var(--radius);
-    padding: 24px;
-    width: 100%;
-    max-width: 400px;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-  }
-  .modal-title { font-size: 15px; font-weight: 500; color: var(--text); }
-  .field { display: flex; flex-direction: column; gap: 6px; }
-  .field label { font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--text3); }
-  .field input {
-    padding: 10px 12px;
-    border-radius: var(--radius-sm);
-    border: 0.5px solid var(--border2);
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--font-ui);
-    font-size: 14px;
-    outline: none;
-    transition: border-color .15s;
-    min-height: 44px;
-    width: 100%;
-  }
-  .field input:focus { border-color: var(--green); }
-  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
-
-  /* TOAST */
-  .toast {
-    position: fixed;
-    bottom: 24px; left: 50%;
-    transform: translateX(-50%) translateY(80px);
-    background: var(--text);
-    color: var(--bg);
-    border-radius: var(--radius-sm);
-    padding: 10px 18px;
-    font-family: var(--font-mono);
-    font-size: 12px;
-    transition: transform .25s ease;
-    white-space: nowrap;
-    z-index: 200;
-    pointer-events: none;
-  }
-  .toast.show { transform: translateX(-50%) translateY(0); }
-
-  /* EMPTY */
-  .empty {
-    grid-column: 1 / -1;
-    text-align: center;
-    padding: 48px 20px;
-    color: var(--text3);
-    font-size: 14px;
-    border: 0.5px dashed var(--border2);
-    border-radius: var(--radius);
-  }
-  .empty .ti { font-size: 32px; display: block; margin-bottom: 10px; }
-
-  /* RESPONSIVE */
-  @media (max-width: 480px) {
-    .page { padding: 16px 14px 48px; }
-    .grid { grid-template-columns: 1fr; }
-    .summary { grid-template-columns: repeat(2, 1fr); }
-    .topbar-title span { display: none; }
-  }
-  @media (min-width: 481px) and (max-width: 768px) {
-    .page { padding: 20px 20px 48px; }
-    .grid { grid-template-columns: repeat(2, 1fr); }
-  }
-  @media (min-width: 769px) and (max-width: 1024px) {
-    .page { padding: 24px 24px 60px; }
-    .grid { grid-template-columns: repeat(3, 1fr); }
-  }
-  @media (min-width: 1025px) {
-    .grid { grid-template-columns: repeat(4, 1fr); }
-  }
-</style>
-</head>
-<body>
-
-<div class="page">
-  <!-- TOP BAR -->
-  <div class="topbar">
-    <div class="topbar-title">
-      <i class="ti ti-layout-cards"></i>
-      <span>flow accounts</span>
-    </div>
-    <div class="topbar-actions">
-      <button class="btn" id="refreshBtn" onclick="manualRefresh()">
-        <i class="ti ti-refresh"></i>refresh credits
-      </button>
-      <button class="btn primary" onclick="openModal()">
-        <i class="ti ti-plus"></i>add account
-      </button>
-    </div>
-  </div>
-
-  <!-- SUMMARY -->
-  <div class="summary" id="summaryBar"></div>
-
-  <!-- REFRESH ROW -->
-  <div class="refresh-row">
-    <div class="refresh-left">
-      <i class="ti ti-clock" style="font-size:13px;"></i>
-      <span>auto-refresh ทุก 10 นาที</span>
-      <div class="progress-track">
-        <div class="progress-fill" id="progressFill" style="width:100%;"></div>
-      </div>
-      <span id="cdText">10:00</span>
-    </div>
-    <span id="lastUpdatedText">—</span>
-  </div>
-
-  <!-- CARD GRID -->
-  <div class="grid" id="cardGrid"></div>
-</div>
-
-<!-- ADD MODAL -->
-<div class="modal-overlay" id="modalOverlay" onclick="closeModalOutside(event)">
-  <div class="modal">
-    <div class="modal-title">เพิ่ม account ใหม่</div>
-    <div class="field">
-      <label>ชื่อ account</label>
-      <input type="text" id="fName" placeholder="Work Main">
-    </div>
-    <div class="field">
-      <label>Email</label>
-      <input type="email" id="fEmail" placeholder="you@example.com">
-    </div>
-    <div class="field-row">
-      <div class="field">
-        <label>Credits ปัจจุบัน</label>
-        <input type="number" id="fCredits" placeholder="5000" min="0">
-      </div>
-      <div class="field">
-        <label>Credits สูงสุด</label>
-        <input type="number" id="fMax" placeholder="10000" min="1">
-      </div>
-    </div>
-    <div class="modal-actions">
-      <button class="btn" onclick="closeModal()">ยกเลิก</button>
-      <button class="btn primary" onclick="addAccount()">เพิ่ม</button>
-    </div>
-  </div>
-</div>
-
-<!-- TOAST -->
-<div class="toast" id="toast"></div>
-
-<script>
-const COLORS = [
-  { accent:'#378ADD', avatarBg:'#dbeeff', avatarText:'#0C447C' },
-  { accent:'#1D9E75', avatarBg:'#d4f5e9', avatarText:'#085041' },
-  { accent:'#D4537E', avatarBg:'#fce4ee', avatarText:'#72243E' },
-  { accent:'#EF9F27', avatarBg:'#fef0d5', avatarText:'#633806' },
-  { accent:'#7F77DD', avatarBg:'#eceafe', avatarText:'#3C3489' },
-  { accent:'#D85A30', avatarBg:'#fce9e1', avatarText:'#712B13' },
+const demoAccounts = [
+  {
+    id: 1,
+    name: "Flow AI - Account A",
+    email: "account-a@example.com",
+    password: "local-password",
+    credits: 120,
+    status: "Online",
+    browser: "Chrome Profile 1",
+    url: "https://flow.ai",
+  },
+  {
+    id: 2,
+    name: "Flow AI - Account B",
+    email: "account-b@example.com",
+    password: "local-password",
+    credits: 87,
+    status: "Online",
+    browser: "Chrome Profile 2",
+    url: "https://flow.ai",
+  },
+  {
+    id: 3,
+    name: "Flow AI - Account C",
+    email: "account-c@example.com",
+    password: "local-password",
+    credits: 41,
+    status: "Offline",
+    browser: "Chrome Profile 3",
+    url: "https://flow.ai",
+  },
 ];
 
-const STORAGE_KEY = 'flow_accounts_v1';
-const TOTAL_SECS = 600;
-let secsLeft = TOTAL_SECS;
-let isRefreshing = false;
+export default function FlowDashboard() {
+  const [accounts, setAccounts] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
 
-// ─── localStorage helpers ───────────────────────────────────────────
-function loadAccounts() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : defaultAccounts();
-  } catch(e) { return defaultAccounts(); }
-}
-function saveAccounts() {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(accounts)); } catch(e) {}
-}
-function defaultAccounts() {
-  return [
-    { id:1, name:'Work Main',    email:'work@company.com',  credits:8420, max:10000, status:'online'  },
-    { id:2, name:'Side Project', email:'side@gmail.com',    credits:340,  max:5000,  status:'online'  },
-    { id:3, name:'Client A',     email:'admin@clienta.co', credits:4750, max:5000,  status:'idle'    },
-  ];
-}
-
-let accounts = loadAccounts();
-let lastUpdated = new Date();
-
-// ─── utils ──────────────────────────────────────────────────────────
-function initials(n) { return n.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase(); }
-function barColor(p) { return p>.5?'#1D9E75':p>.2?'#EF9F27':'#E24B4A'; }
-function dotColor(s) { return s==='online'?'#1D9E75':s==='idle'?'#EF9F27':'#888780'; }
-function fmtTime(d) { return d.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
-function fmtCD(s)   { const m=Math.floor(s/60),sc=s%60; return m+':'+(sc<10?'0':'')+sc; }
-function uid()      { return Date.now()+Math.floor(Math.random()*10000); }
-
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg; t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2500);
-}
-
-// ─── simulate refresh (replace with real API call) ──────────────────
-function simulateFetch() {
-  accounts = accounts.map(a => {
-    const d = Math.floor((Math.random()-.45)*150);
-    const nc = Math.max(0, Math.min(a.max, a.credits + d));
-    const ss = ['online','online','online','idle','offline'];
-    return { ...a, credits:nc, _delta:nc-a.credits, status:ss[Math.floor(Math.random()*ss.length)] };
-  });
-}
-
-// ─── render ─────────────────────────────────────────────────────────
-function renderSummary() {
-  const total  = accounts.reduce((s,a)=>s+a.credits, 0);
-  const online = accounts.filter(a=>a.status==='online').length;
-  const low    = accounts.filter(a=>a.credits/a.max<.2).length;
-  let html = `
-    <div class="scard"><div class="scard-num">${accounts.length}</div><div class="scard-lbl">accounts</div></div>
-    <div class="scard"><div class="scard-num" style="color:#1D9E75;">${online}</div><div class="scard-lbl">online</div></div>
-    <div class="scard"><div class="scard-num">${total.toLocaleString()}</div><div class="scard-lbl">total credits</div></div>
-  `;
-  if (low > 0) html += `<div class="scard"><div class="scard-num" style="color:#E24B4A;">${low}</div><div class="scard-lbl">low credit</div></div>`;
-  document.getElementById('summaryBar').innerHTML = html;
-  document.getElementById('lastUpdatedText').innerHTML =
-    `<i class="ti ti-refresh" style="font-size:11px;vertical-align:-1px;margin-right:3px;"></i>อัปเดต ${fmtTime(lastUpdated)}`;
-}
-
-function renderCards() {
-  const g = document.getElementById('cardGrid');
-  g.innerHTML = '';
-  if (accounts.length === 0) {
-    g.innerHTML = `<div class="empty"><i class="ti ti-inbox"></i>ยังไม่มี account — กด "add account" เพื่อเพิ่ม</div>`;
-    return;
-  }
-  accounts.forEach((a, i) => {
-    const c   = COLORS[i % COLORS.length];
-    const pct = a.credits / a.max;
-    const bc  = barColor(pct);
-    const pd  = Math.round(pct * 100);
-    const el  = document.createElement('div');
-    el.className = 'card';
-    el.innerHTML = `
-      <div class="flash-ov"></div>
-      <div class="card-accent" style="background:${c.accent};"></div>
-      <div class="card-head">
-        <div class="avatar" style="background:${c.avatarBg};color:${c.avatarText};">${initials(a.name)}</div>
-        <div class="card-status">
-          <div class="status-dot" id="sd-${a.id}" style="background:${dotColor(a.status)};"></div>
-          <span id="ss-${a.id}">${a.status}</span>
-        </div>
-      </div>
-      <div>
-        <div class="card-name">${a.name}</div>
-        <div class="card-email">${a.email}</div>
-      </div>
-      <div class="credit-sec">
-        <div class="credit-row">
-          <span class="credit-lbl">credits</span>
-          <span class="credit-val" id="cv-${a.id}" style="color:${bc};">${a.credits.toLocaleString()} <span style="color:var(--text3);font-weight:400;">/ ${a.max.toLocaleString()}</span></span>
-        </div>
-        <div class="bar-track"><div class="bar-fill" id="bf-${a.id}" style="width:${pd}%;background:${bc};"></div></div>
-        <div class="credit-footer">
-          <span class="delta" id="dd-${a.id}"></span>
-          <span class="credit-pct" id="dp-${a.id}">${pd}% remaining</span>
-        </div>
-      </div>
-      <div class="card-actions">
-        <button class="login-btn" data-id="${a.id}">
-          <i class="ti ti-login-2" style="font-size:14px;"></i>login to flow
-        </button>
-        <button class="icon-btn" data-del="${a.id}" title="ลบ account">
-          <i class="ti ti-trash" style="font-size:15px;"></i>
-        </button>
-      </div>
-    `;
-    el.querySelector('.login-btn').addEventListener('click', () => showToast('↗ logging in to "'+a.name+'"...'));
-    el.querySelector('.icon-btn').addEventListener('click', () => deleteAccount(a.id, a.name));
-    g.appendChild(el);
-  });
-}
-
-function updateCards() {
-  accounts.forEach(a => {
-    const pct = a.credits / a.max;
-    const bc  = barColor(pct);
-    const pd  = Math.round(pct * 100);
-    const cv  = document.getElementById('cv-'+a.id);
-    const bf  = document.getElementById('bf-'+a.id);
-    const dp  = document.getElementById('dp-'+a.id);
-    const dd  = document.getElementById('dd-'+a.id);
-    const sd  = document.getElementById('sd-'+a.id);
-    const ss  = document.getElementById('ss-'+a.id);
-    if (cv) { cv.style.color=bc; cv.innerHTML=a.credits.toLocaleString()+' <span style="color:var(--text3);font-weight:400;">/ '+a.max.toLocaleString()+'</span>'; }
-    if (bf) { bf.style.width=pd+'%'; bf.style.background=bc; }
-    if (dp) { dp.textContent=pd+'% remaining'; }
-    if (sd) { sd.style.background=dotColor(a.status); }
-    if (ss) { ss.textContent=a.status; }
-    if (dd && a._delta !== undefined && a._delta !== 0) {
-      const sign = a._delta > 0 ? '+' : '';
-      dd.textContent = sign+a._delta.toLocaleString();
-      dd.className = 'delta show '+(a._delta>0?'delta-up':'delta-dn');
-      setTimeout(() => dd.classList.remove('show'), 3500);
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch (error) {
+      console.error("Failed to load local accounts:", error);
     }
+
+    return demoAccounts;
   });
-}
 
-function flashCards() {
-  document.querySelectorAll('.card').forEach(c => {
-    c.classList.add('flash');
-    setTimeout(() => c.classList.remove('flash'), 400);
+  const [loading, setLoading] = useState(false);
+  const [lastSync, setLastSync] = useState(null);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [showAddForm, setShowAddForm] = useState(false);
+
+  const [newAccount, setNewAccount] = useState({
+    name: "",
+    email: "",
+    password: "",
+    credits: 0,
+    browser: "Chrome Profile",
+    status: "Online",
+    url: "https://flow.ai",
   });
+
+  const GITHUB_USERNAME = "YOUR_GITHUB_USERNAME";
+  const REPO_NAME = "flow-dashboard";
+
+  const accountsUrl = useMemo(() => {
+    if (
+      !GITHUB_USERNAME ||
+      GITHUB_USERNAME === "YOUR_GITHUB_USERNAME"
+    ) {
+      return null;
+    }
+
+    return `https://raw.githubusercontent.com/${GITHUB_USERNAME}/${REPO_NAME}/main/public/accounts.json`;
+  }, [GITHUB_USERNAME]);
+
+  const fetchAccounts = async () => {
+    if (!accountsUrl) {
+      setErrorMessage(
+        "Using local browser storage. Add GitHub username for live sync."
+      );
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setErrorMessage("");
+
+      const response = await fetch(accountsUrl, {
+        cache: "no-cache",
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (!Array.isArray(data)) {
+        throw new Error("accounts.json must contain an array");
+      }
+
+      setAccounts(data);
+      setLastSync(new Date());
+    } catch (error) {
+      console.error("Failed to fetch accounts:", error);
+
+      setErrorMessage(
+        "Failed to sync GitHub accounts. Using local browser data instead."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(accounts));
+    } catch (error) {
+      console.error("Failed to save local accounts:", error);
+    }
+  }, [accounts]);
+
+  useEffect(() => {
+    fetchAccounts();
+
+    const interval = setInterval(() => {
+      fetchAccounts();
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [accountsUrl]);
+
+  const openFlow = (url) => {
+    if (!url) {
+      return;
+    }
+
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+
+  const addAccount = () => {
+    if (!newAccount.name || !newAccount.email) {
+      setErrorMessage("Please enter account name and email.");
+      return;
+    }
+
+    const account = {
+      id: Date.now(),
+      name: newAccount.name,
+      email: newAccount.email,
+      password: newAccount.password,
+      credits: Number(newAccount.credits || 0),
+      browser: newAccount.browser,
+      status: newAccount.status,
+      url: newAccount.url,
+    };
+
+    setAccounts((prev) => [...prev, account]);
+
+    setNewAccount({
+      name: "",
+      email: "",
+      password: "",
+      credits: 0,
+      browser: "Chrome Profile",
+      status: "Online",
+      url: "https://flow.ai",
+    });
+
+    setShowAddForm(false);
+    setErrorMessage("");
+  };
+
+  const removeAccount = (id) => {
+    setAccounts((prev) => prev.filter((account) => account.id !== id));
+  };
+
+  const totalCredits = accounts.reduce(
+    (sum, account) => sum + Number(account.credits || 0),
+    0
+  );
+
+  return (
+    <div className="min-h-screen bg-black text-white p-6">
+      <div className="max-w-7xl mx-auto">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-8">
+          <div>
+            <h1 className="text-4xl font-bold tracking-tight">
+              FLOW AI DASHBOARD
+            </h1>
+
+            <p className="text-zinc-400 mt-2">
+              Multi Account Control Panel
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-4 items-center">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-4 min-w-[140px]">
+              <div className="text-zinc-500 text-sm">Accounts</div>
+
+              <div className="text-3xl font-bold mt-1">
+                {accounts.length}
+              </div>
+            </div>
+
+            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-4 min-w-[180px]">
+              <div className="text-zinc-500 text-sm">Total Credits</div>
+
+              <div className="text-3xl font-bold mt-1">
+                {totalCredits}
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowAddForm(!showAddForm)}
+              className="bg-white text-black px-5 py-3 rounded-2xl font-semibold hover:scale-[1.02] transition-transform"
+            >
+              {showAddForm ? "Close" : "Add Account"}
+            </button>
+          </div>
+        </div>
+
+        {errorMessage && (
+          <div className="mb-6 bg-yellow-500/10 border border-yellow-500/20 text-yellow-300 rounded-2xl px-5 py-4">
+            {errorMessage}
+          </div>
+        )}
+
+        {showAddForm && (
+          <div className="mb-8 bg-zinc-950 border border-zinc-800 rounded-3xl p-6">
+            <h2 className="text-2xl font-semibold mb-5">
+              Add Flow AI Account
+            </h2>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <input
+                type="text"
+                placeholder="Account Name"
+                value={newAccount.name}
+                onChange={(e) =>
+                  setNewAccount({
+                    ...newAccount,
+                    name: e.target.value,
+                  })
+                }
+                className="bg-zinc-900 border border-zinc-700 rounded-2xl px-4 py-3 outline-none"
+              />
+
+              <input
+                type="email"
+                placeholder="Email"
+                value={newAccount.email}
+                onChange={(e) =>
+                  setNewAccount({
+                    ...newAccount,
+                    email: e.target.value,
+                  })
+                }
+                className="bg-zinc-900 border border-zinc-700 rounded-2xl px-4 py-3 outline-none"
+              />
+
+              <input
+                type="password"
+                placeholder="Password (stored locally only)"
+                value={newAccount.password}
+                onChange={(e) =>
+                  setNewAccount({
+                    ...newAccount,
+                    password: e.target.value,
+                  })
+                }
+                className="bg-zinc-900 border border-zinc-700 rounded-2xl px-4 py-3 outline-none"
+              />
+
+              <input
+                type="number"
+                placeholder="Credits"
+                value={newAccount.credits}
+                onChange={(e) =>
+                  setNewAccount({
+                    ...newAccount,
+                    credits: e.target.value,
+                  })
+                }
+                className="bg-zinc-900 border border-zinc-700 rounded-2xl px-4 py-3 outline-none"
+              />
+            </div>
+
+            <div className="flex gap-3 mt-5">
+              <button
+                onClick={addAccount}
+                className="bg-white text-black px-5 py-3 rounded-2xl font-semibold"
+              >
+                Save Account
+              </button>
+
+              <button
+                onClick={() => setShowAddForm(false)}
+                className="bg-zinc-900 border border-zinc-700 px-5 py-3 rounded-2xl"
+              >
+                Cancel
+              </button>
+            </div>
+
+            <div className="mt-4 text-zinc-500 text-sm leading-relaxed">
+              Account data is stored locally in this browser using localStorage.
+              For stronger security, use Chrome Profiles and Chrome Password
+              Manager.
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          {accounts.map((account) => (
+            <div
+              key={account.id}
+              className="bg-zinc-950 border border-zinc-800 rounded-3xl p-6 shadow-2xl hover:border-zinc-600 transition-all"
+            >
+              <div className="flex items-start justify-between gap-4 mb-5">
+                <div>
+                  <h2 className="text-2xl font-semibold break-words">
+                    {account.name}
+                  </h2>
+
+                  <div className="text-zinc-500 mt-1 text-sm">
+                    {account.browser}
+                  </div>
+                </div>
+
+                <div
+                  className={`px-3 py-1 rounded-full text-sm font-medium whitespace-nowrap ${
+                    account.status === "Online"
+                      ? "bg-green-500/20 text-green-400"
+                      : "bg-red-500/20 text-red-400"
+                  }`}
+                >
+                  {account.status}
+                </div>
+              </div>
+
+              <div className="bg-zinc-900 rounded-2xl p-5 mb-6">
+                <div className="text-zinc-500 text-sm mb-2">
+                  Available Credits
+                </div>
+
+                <div className="text-5xl font-bold tracking-tight">
+                  {account.credits}
+                </div>
+              </div>
+
+              <div className="bg-zinc-900 rounded-2xl p-4 mb-6 space-y-2 text-sm">
+                <div>
+                  <span className="text-zinc-500">Email:</span>{" "}
+                  {account.email}
+                </div>
+
+                <div>
+                  <span className="text-zinc-500">Password:</span>{" "}
+                  {account.password ? "••••••••" : "Not saved"}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <button
+                  onClick={() => openFlow(account.url)}
+                  className="bg-white text-black font-semibold py-3 rounded-2xl hover:scale-[1.02] transition-transform"
+                >
+                  Open
+                </button>
+
+                <button
+                  onClick={fetchAccounts}
+                  className="bg-zinc-900 border border-zinc-700 py-3 rounded-2xl hover:bg-zinc-800 transition-colors"
+                >
+                  Sync
+                </button>
+
+                <button
+                  onClick={() => removeAccount(account.id)}
+                  className="bg-red-500/20 text-red-400 border border-red-500/20 py-3 rounded-2xl hover:bg-red-500/30 transition-colors"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-10 bg-zinc-950 border border-zinc-800 rounded-3xl p-6">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-5">
+            <h2 className="text-2xl font-semibold">Activity Monitor</h2>
+
+            <div className="flex items-center gap-3">
+              {lastSync && (
+                <div className="text-zinc-500 text-sm">
+                  Last sync: {lastSync.toLocaleTimeString()}
+                </div>
+              )}
+
+              <button
+                onClick={fetchAccounts}
+                className="bg-zinc-900 border border-zinc-700 px-4 py-2 rounded-xl hover:bg-zinc-800"
+              >
+                {loading ? "Syncing..." : "Sync Now"}
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            {accounts.map((account) => (
+              <div
+                key={`activity-${account.id}`}
+                className="bg-zinc-900 rounded-2xl p-4 flex items-center justify-between gap-4"
+              >
+                <div>
+                  <div className="font-medium">{account.name}</div>
+
+                  <div className="text-zinc-500 text-sm">
+                    {account.status === "Online"
+                      ? "Session active and synced"
+                      : "Currently offline"}
+                  </div>
+                </div>
+
+                <div
+                  className={`text-sm ${
+                    account.status === "Online"
+                      ? "text-green-400"
+                      : "text-red-400"
+                  }`}
+                >
+                  {account.status}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-6 bg-zinc-950 border border-zinc-800 rounded-3xl p-6">
+          <h3 className="text-xl font-semibold mb-4">
+            GitHub Setup Instructions
+          </h3>
+
+          <div className="space-y-3 text-zinc-400 text-sm leading-relaxed">
+            <p>
+              1. Replace
+              <span className="text-white">
+                {" "}YOUR_GITHUB_USERNAME
+              </span>
+              with your GitHub username.
+            </p>
+
+            <p>
+              2. Create
+              <span className="text-white">
+                {" "}/public/accounts.json
+              </span>
+            </p>
+
+            <p>3. Example JSON structure:</p>
+
+            <pre className="bg-black rounded-2xl p-4 overflow-auto text-xs text-green-400">
+{`[
+  {
+    "id": 1,
+    "name": "Flow AI - Main",
+    "email": "main@example.com",
+    "password": "local-password",
+    "credits": 120,
+    "status": "Online",
+    "browser": "Chrome Profile 1",
+    "url": "https://flow.ai"
+  }
+]`}
+            </pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
-
-// ─── refresh ────────────────────────────────────────────────────────
-function doRefresh() {
-  simulateFetch();  // ← แทนด้วย fetch จาก Flow API จริง
-  flashCards();
-  updateCards();
-  renderSummary();
-  lastUpdated = new Date();
-  secsLeft    = TOTAL_SECS;
-  saveAccounts();
-}
-
-function manualRefresh() {
-  if (isRefreshing) return;
-  isRefreshing = true;
-  const btn = document.getElementById('refreshBtn');
-  btn.classList.add('spinning');
-  btn.disabled = true;
-  setTimeout(() => {
-    doRefresh();
-    btn.classList.remove('spinning');
-    btn.disabled = false;
-    isRefreshing = false;
-    showToast('credits อัปเดตแล้ว');
-  }, 800);
-}
-
-// ─── add / delete ────────────────────────────────────────────────────
-function openModal() {
-  document.getElementById('fName').value    = '';
-  document.getElementById('fEmail').value   = '';
-  document.getElementById('fCredits').value = '';
-  document.getElementById('fMax').value     = '';
-  document.getElementById('modalOverlay').classList.add('open');
-  setTimeout(() => document.getElementById('fName').focus(), 100);
-}
-function closeModal()  { document.getElementById('modalOverlay').classList.remove('open'); }
-function closeModalOutside(e) { if (e.target === document.getElementById('modalOverlay')) closeModal(); }
-
-function addAccount() {
-  const name    = document.getElementById('fName').value.trim();
-  const email   = document.getElementById('fEmail').value.trim();
-  const credits = parseInt(document.getElementById('fCredits').value) || 0;
-  const max     = parseInt(document.getElementById('fMax').value) || 5000;
-  if (!name || !email) { showToast('กรุณากรอกชื่อและ email'); return; }
-  accounts.push({ id:uid(), name, email, credits:Math.max(0,credits), max:Math.max(1,max), status:'online' });
-  saveAccounts();
-  closeModal();
-  renderCards();
-  renderSummary();
-  showToast('เพิ่ม "'+name+'" แล้ว');
-}
-
-function deleteAccount(id, name) {
-  if (!confirm('ลบ "'+name+'" ออกจากรายการ?')) return;
-  accounts = accounts.filter(a => a.id !== id);
-  saveAccounts();
-  renderCards();
-  renderSummary();
-  showToast('ลบ "'+name+'" แล้ว');
-}
-
-// ─── keyboard ────────────────────────────────────────────────────────
-document.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && document.getElementById('modalOverlay').classList.contains('open')) addAccount();
-  if (e.key === 'Escape') closeModal();
-});
-
-// ─── countdown ───────────────────────────────────────────────────────
-setInterval(() => {
-  secsLeft = Math.max(0, secsLeft - 1);
-  const pct = Math.round((secsLeft / TOTAL_SECS) * 100);
-  const pf = document.getElementById('progressFill');
-  const cd = document.getElementById('cdText');
-  if (pf) pf.style.width = pct + '%';
-  if (cd) cd.textContent  = fmtCD(secsLeft);
-  if (secsLeft === 0) doRefresh();
-}, 1000);
-
-// ─── init ─────────────────────────────────────────────────────────────
-renderSummary();
-renderCards();
-</script>
-</body>
-</html>
