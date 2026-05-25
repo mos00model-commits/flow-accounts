@@ -1,226 +1,678 @@
-import { useEffect, useState } from "react";
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Flow AI Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Thai:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f; --surface: #111118; --card: #16161f;
+    --border: #2a2a3a; --border-glow: #3d3d5c;
+    --accent: #6c63ff; --green: #00d4aa; --red: #ff6b6b; --amber: #f5a623;
+    --text: #e8e8f0; --text-muted: #7878a0; --text-dim: #4a4a6a;
+    --font: 'IBM Plex Sans Thai', sans-serif; --mono: 'IBM Plex Mono', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font); min-height: 100vh; overflow-x: hidden; }
+  body::before {
+    content: ''; position: fixed; inset: 0;
+    background-image: linear-gradient(rgba(108,99,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(108,99,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px; pointer-events: none; z-index: 0;
+  }
 
-const STORAGE_KEY = "flow_accounts";
+  /* NAV */
+  nav {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(10,10,15,0.92); backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px; height: 60px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .nav-logo { display: flex; align-items: center; gap: 10px; font-family: var(--mono); font-size: 15px; font-weight: 600; color: var(--text); letter-spacing: 0.02em; }
+  .nav-logo .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); animation: pulse 2s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.6;transform:scale(0.85)} }
+  .nav-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .badge-count { background: var(--accent); color: #fff; font-size: 11px; font-family: var(--mono); padding: 2px 8px; border-radius: 20px; }
+  .btn-sm { background: transparent; border: 1px solid var(--border); color: var(--text-muted); padding: 6px 14px; border-radius: 8px; font-size: 12px; cursor: pointer; transition: all 0.2s; font-family: var(--font); }
+  .btn-sm:hover { border-color: var(--accent); color: var(--text); }
+  .btn-reload { background: transparent; border: 1px solid var(--green); color: var(--green); padding: 6px 14px; border-radius: 8px; font-size: 12px; cursor: pointer; font-family: var(--font); transition: all 0.2s; display: flex; align-items: center; gap: 6px; }
+  .btn-reload:hover { background: rgba(0,212,170,0.1); }
+  .btn-reload.spinning .reload-icon { animation: spin 0.7s linear infinite; }
+  @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+  .reload-icon { display: inline-block; font-style: normal; }
 
-const defaultAccounts = [
-  {
-    id: 1,
-    name: "Flow Main",
-    email: "main@example.com",
-    url: "https://flow.ai/login",
-    status: "Online",
-  },
-  {
-    id: 2,
-    name: "Flow Backup",
-    email: "backup@example.com",
-    url: "https://flow.ai/login",
-    status: "Offline",
-  },
-];
+  /* MAIN */
+  main { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 32px 24px 80px; }
 
-export default function App() {
-  const [accounts, setAccounts] = useState(defaultAccounts);
-  const [showAdd, setShowAdd] = useState(false);
+  /* CREDIT SUMMARY BAR */
+  .credit-summary {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    padding: 18px 20px; margin-bottom: 20px;
+    display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+  }
+  .cs-left { flex: 1; min-width: 180px; }
+  .cs-title { font-size: 11px; color: var(--text-muted); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 4px; }
+  .cs-total { font-family: var(--mono); font-size: 22px; font-weight: 600; color: var(--green); }
+  .cs-total span { font-size: 13px; color: var(--text-muted); font-weight: 400; }
+  .cs-reset { font-size: 11px; color: var(--text-dim); margin-top: 4px; font-family: var(--mono); }
+  .cs-bar-wrap { flex: 2; min-width: 200px; }
+  .cs-bar-label { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); margin-bottom: 6px; font-family: var(--mono); }
+  .cs-bar-track { height: 8px; background: var(--surface); border-radius: 20px; overflow: hidden; border: 1px solid var(--border); }
+  .cs-bar-fill { height: 100%; border-radius: 20px; transition: width 0.4s ease; }
 
-  const [newAccount, setNewAccount] = useState({
-    name: "",
-    email: "",
-    url: "https://flow.ai/login",
-    status: "Online",
+  /* STATS ROW */
+  .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+  .stat-label { font-size: 11px; color: var(--text-muted); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 8px; }
+  .stat-val { font-family: var(--mono); font-size: 26px; font-weight: 600; }
+
+  /* TOOLBAR */
+  .toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+  .search-wrap { flex: 1; min-width: 200px; position: relative; }
+  .search-wrap input { width: 100%; background: var(--card); border: 1px solid var(--border); color: var(--text); padding: 10px 12px 10px 38px; border-radius: 10px; font-size: 14px; font-family: var(--font); transition: border-color 0.2s; outline: none; }
+  .search-wrap input:focus { border-color: var(--accent); }
+  .search-wrap input::placeholder { color: var(--text-dim); }
+  .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-dim); font-size: 15px; pointer-events: none; }
+  .btn-add { background: var(--accent); color: #fff; border: none; padding: 10px 20px; border-radius: 10px; font-size: 14px; font-weight: 500; cursor: pointer; font-family: var(--font); transition: opacity 0.2s, transform 0.1s; white-space: nowrap; }
+  .btn-add:hover { opacity: 0.85; }
+  .btn-add:active { transform: scale(0.97); }
+
+  /* GRID */
+  .cred-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); gap: 16px; }
+
+  /* CARD */
+  .cred-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 20px; position: relative; transition: border-color 0.2s, transform 0.15s; cursor: default; }
+  .cred-card:hover { border-color: var(--border-glow); transform: translateY(-1px); }
+  .cred-card.active { border-color: var(--green); }
+  .cred-card.inactive { border-color: var(--border); opacity: 0.65; }
+  .card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+  .card-title-wrap { flex: 1; min-width: 0; }
+  .card-name { font-size: 15px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 3px; }
+  .card-label { font-size: 11px; color: var(--text-muted); font-family: var(--mono); letter-spacing: 0.05em; }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+  .status-dot.on { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .status-dot.off { background: var(--text-dim); }
+
+  /* CREDIT BOX IN CARD */
+  .credit-box {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 14px; margin-bottom: 10px;
+  }
+  .credit-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .credit-label { font-size: 11px; color: var(--text-muted); letter-spacing: 0.06em; text-transform: uppercase; }
+  .credit-nums { display: flex; align-items: baseline; gap: 4px; }
+  .credit-val { font-family: var(--mono); font-size: 20px; font-weight: 600; }
+  .credit-max { font-family: var(--mono); font-size: 12px; color: var(--text-dim); }
+  .credit-track { height: 6px; background: var(--border); border-radius: 20px; overflow: hidden; margin-bottom: 8px; }
+  .credit-fill { height: 100%; border-radius: 20px; transition: width 0.4s ease; }
+  .credit-controls { display: flex; align-items: center; gap: 6px; }
+  .credit-btn { background: var(--card); border: 1px solid var(--border); color: var(--text-muted); width: 28px; height: 28px; border-radius: 6px; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; flex-shrink: 0; font-family: var(--mono); font-weight: 600; }
+  .credit-btn:hover { border-color: var(--accent); color: var(--text); }
+  .credit-input { flex: 1; background: var(--card); border: 1px solid var(--border); color: var(--text); padding: 5px 8px; border-radius: 6px; font-size: 13px; font-family: var(--mono); text-align: center; outline: none; min-width: 0; }
+  .credit-input:focus { border-color: var(--accent); }
+  .credit-updated { font-size: 10px; color: var(--text-dim); font-family: var(--mono); }
+
+  /* FIELD */
+  .field-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .field-label { font-size: 11px; color: var(--text-muted); width: 44px; flex-shrink: 0; letter-spacing: 0.06em; text-transform: uppercase; }
+  .field-val { flex: 1; min-width: 0; font-family: var(--mono); font-size: 12px; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: text; user-select: all; }
+  .field-val.masked { letter-spacing: 0.2em; color: var(--text-muted); }
+  .copy-btn { background: transparent; border: 1px solid var(--border); color: var(--text-muted); width: 30px; height: 30px; border-radius: 6px; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; flex-shrink: 0; }
+  .copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .copy-btn.copied { border-color: var(--green); color: var(--green); }
+  .toggle-eye { background: transparent; border: none; color: var(--text-dim); cursor: pointer; font-size: 13px; padding: 0 2px; flex-shrink: 0; transition: color 0.15s; }
+  .toggle-eye:hover { color: var(--text); }
+
+  /* CARD ACTIONS */
+  .card-actions { display: flex; gap: 6px; margin-top: 14px; border-top: 1px solid var(--border); padding-top: 12px; flex-wrap: wrap; }
+  .act-btn { flex: 1; background: transparent; border: 1px solid var(--border); color: var(--text-muted); padding: 7px 6px; border-radius: 8px; font-size: 11px; cursor: pointer; font-family: var(--font); transition: all 0.15s; white-space: nowrap; min-width: 60px; }
+  .act-btn:hover { color: var(--text); border-color: var(--border-glow); }
+  .act-btn.danger:hover { border-color: var(--red); color: var(--red); }
+  .act-btn.open-btn { border-color: var(--accent); color: var(--accent); }
+  .act-btn.open-btn:hover { background: rgba(108,99,255,0.12); }
+
+  /* TAGS */
+  .card-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
+  .tag { font-size: 10px; font-family: var(--mono); padding: 3px 8px; border-radius: 20px; background: rgba(108,99,255,0.12); color: var(--accent); border: 1px solid rgba(108,99,255,0.2); letter-spacing: 0.04em; }
+
+  /* MODAL */
+  .modal-overlay { position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,0.75); display: flex; align-items: center; justify-content: center; padding: 20px; animation: fadeIn 0.15s ease; }
+  @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+  .modal { background: var(--card); border: 1px solid var(--border-glow); border-radius: 16px; width: 100%; max-width: 500px; padding: 28px; animation: slideUp 0.2s ease; max-height: 90vh; overflow-y: auto; }
+  @keyframes slideUp { from{transform:translateY(16px);opacity:0} to{transform:translateY(0);opacity:1} }
+  .modal-title { font-size: 17px; font-weight: 600; margin-bottom: 22px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+  .form-group { margin-bottom: 16px; }
+  .form-label { font-size: 12px; color: var(--text-muted); letter-spacing: 0.06em; text-transform: uppercase; display: block; margin-bottom: 6px; }
+  .form-input { width: 100%; background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 10px 14px; border-radius: 8px; font-size: 14px; font-family: var(--font); transition: border-color 0.2s; outline: none; }
+  .form-input:focus { border-color: var(--accent); }
+  .form-input.mono { font-family: var(--mono); font-size: 13px; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .modal-actions { display: flex; gap: 10px; margin-top: 22px; }
+  .btn-primary { flex: 1; background: var(--accent); color: #fff; border: none; padding: 11px; border-radius: 10px; font-size: 14px; font-weight: 500; cursor: pointer; font-family: var(--font); transition: opacity 0.15s; }
+  .btn-primary:hover { opacity: 0.85; }
+  .btn-cancel { background: transparent; border: 1px solid var(--border); color: var(--text-muted); padding: 11px 20px; border-radius: 10px; font-size: 14px; cursor: pointer; font-family: var(--font); transition: all 0.15s; }
+  .btn-cancel:hover { border-color: var(--border-glow); color: var(--text); }
+
+  /* TOAST */
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--green); color: #000; padding: 10px 20px; border-radius: 10px; font-size: 13px; font-weight: 500; z-index: 999; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); white-space: nowrap; }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.error { background: var(--red); color: #fff; }
+
+  /* NOTE BAR */
+  .note-bar { background: rgba(245,166,35,0.08); border: 1px solid rgba(245,166,35,0.2); border-radius: 10px; padding: 12px 16px; font-size: 12px; color: var(--amber); margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+
+  /* SECTION */
+  .section-hd { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .section-hd h2 { font-size: 13px; color: var(--text-muted); letter-spacing: 0.08em; text-transform: uppercase; }
+
+  /* EMPTY */
+  .empty { text-align: center; padding: 80px 20px; color: var(--text-dim); }
+  .empty-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.4; }
+  .empty h3 { font-size: 16px; color: var(--text-muted); margin-bottom: 8px; }
+  .empty p { font-size: 13px; }
+
+  /* RESPONSIVE */
+  @media(max-width:600px){
+    main { padding: 20px 16px 80px; }
+    .cred-grid { grid-template-columns: 1fr; }
+    .form-row { grid-template-columns: 1fr; }
+    .stats-row { grid-template-columns: repeat(2,1fr); }
+    nav { padding: 0 16px; }
+    .nav-right { gap: 6px; }
+    .btn-sm, .btn-reload { padding: 5px 10px; font-size: 11px; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">
+    <span class="dot"></span>
+    FLOW AI VAULT
+  </div>
+  <div class="nav-right">
+    <span class="badge-count" id="nav-count">0 accounts</span>
+    <button class="btn-reload" id="reload-btn" onclick="reloadCredits()">
+      <span class="reload-icon" id="reload-icon">↺</span> รีโหลด
+    </button>
+    <button class="btn-sm" onclick="exportData()">⬇ Export</button>
+    <button class="btn-sm" onclick="document.getElementById('import-file').click()">⬆ Import</button>
+    <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
+  </div>
+</nav>
+
+<main>
+  <div class="note-bar">
+    ⚠️ เครดิตรีเซ็ตอัตโนมัติทุกวันเที่ยงคืน → 50 เครดิต — กด <strong>รีโหลด</strong> เพื่ออัปเดตสถานะทุก card
+  </div>
+
+  <!-- CREDIT SUMMARY -->
+  <div class="credit-summary">
+    <div class="cs-left">
+      <div class="cs-title">เครดิตรวมทั้งหมด</div>
+      <div class="cs-total" id="cs-total">0 <span>เครดิต</span></div>
+      <div class="cs-reset" id="cs-reset-time">รีเซ็ตในอีก —</div>
+    </div>
+    <div class="cs-bar-wrap">
+      <div class="cs-bar-label">
+        <span>ใช้ไปแล้ว</span>
+        <span id="cs-used-pct">0%</span>
+      </div>
+      <div class="cs-bar-track">
+        <div class="cs-bar-fill" id="cs-bar-fill" style="width:0%"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:5px;font-size:10px;color:var(--text-dim);font-family:var(--mono)">
+        <span id="cs-used-num">ใช้ 0</span>
+        <span id="cs-max-num">สูงสุด 0</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-label">บัญชีทั้งหมด</div>
+      <div class="stat-val" style="color:var(--accent)" id="stat-total">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">ใช้งานอยู่</div>
+      <div class="stat-val" style="color:var(--green)" id="stat-active">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">ปิดใช้งาน</div>
+      <div class="stat-val" style="color:var(--red)" id="stat-inactive">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">เครดิตรวม</div>
+      <div class="stat-val" style="color:var(--green)" id="stat-credits">0</div>
+    </div>
+  </div>
+
+  <!-- TOOLBAR -->
+  <div class="toolbar">
+    <div class="search-wrap">
+      <span class="search-icon">🔍</span>
+      <input type="text" id="search" placeholder="ค้นหาชื่อ, ID, Tag..." oninput="renderCards()">
+    </div>
+    <button class="btn-add" onclick="openModal()">+ เพิ่มบัญชีใหม่</button>
+  </div>
+
+  <div class="section-hd">
+    <h2>Credentials</h2>
+    <select class="btn-sm" id="filter-status" onchange="renderCards()" style="cursor:pointer">
+      <option value="all">ทั้งหมด</option>
+      <option value="active">ใช้งานอยู่</option>
+      <option value="inactive">ปิดใช้งาน</option>
+    </select>
+  </div>
+
+  <div class="cred-grid" id="cred-grid"></div>
+</main>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal" style="display:none" onclick="closeModalOutside(event)">
+  <div class="modal">
+    <div class="modal-title" id="modal-title">เพิ่มบัญชีใหม่</div>
+    <div class="form-group">
+      <label class="form-label">ชื่อบัญชี / ชื่อโปรเจกต์</label>
+      <input class="form-input" id="f-name" placeholder="เช่น Account หลัก, Bot งาน">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">ประเภท</label>
+        <input class="form-input" id="f-type" placeholder="เช่น Free, Pro, Ultra">
+      </div>
+      <div class="form-group">
+        <label class="form-label">เครดิต/วัน</label>
+        <input class="form-input mono" id="f-daily" type="number" placeholder="50" value="50" min="1">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Flow ID (Email / Username)</label>
+      <input class="form-input mono" id="f-id" placeholder="email@gmail.com">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Password</label>
+      <input class="form-input mono" id="f-pass" type="password" placeholder="••••••••••••••••">
+    </div>
+    <div class="form-group">
+      <label class="form-label">URL (ถ้ามี)</label>
+      <input class="form-input" id="f-url" placeholder="https://labs.google/fx/tools/flow">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Tags (คั่นด้วยเครื่องหมาย ,)</label>
+      <input class="form-input" id="f-tags" placeholder="งานหลัก, สำรอง, Pro">
+    </div>
+    <div class="form-group">
+      <label class="form-label">หมายเหตุ</label>
+      <input class="form-input" id="f-note" placeholder="บันทึกเพิ่มเติม...">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">ยกเลิก</button>
+      <button class="btn-primary" onclick="saveEntry()">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const STORE_KEY = 'flowai_vault_v2';
+const DAILY_DEFAULT = 50;
+let data = [];
+let editId = null;
+let visiblePasswords = {};
+
+// ─── STORAGE ───
+function load() {
+  try { data = JSON.parse(localStorage.getItem(STORE_KEY)) || []; } catch(e) { data = []; }
+}
+function save() { localStorage.setItem(STORE_KEY, JSON.stringify(data)); }
+function uid() { return 'id_' + Date.now() + '_' + Math.random().toString(36).slice(2,7); }
+
+// ─── CREDIT RESET LOGIC ───
+function todayKey() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function checkAndResetCredits() {
+  const today = todayKey();
+  let changed = false;
+  data = data.map(e => {
+    if (e.lastResetDate !== today) {
+      changed = true;
+      return { ...e, credits: e.dailyCredits || DAILY_DEFAULT, lastResetDate: today };
+    }
+    return e;
+  });
+  if (changed) { save(); }
+}
+
+function reloadCredits() {
+  const btn = document.getElementById('reload-btn');
+  btn.classList.add('spinning');
+  setTimeout(() => {
+    checkAndResetCredits();
+    renderCards();
+    updateStats();
+    btn.classList.remove('spinning');
+    showToast('รีโหลดเรียบร้อย ✓');
+  }, 700);
+}
+
+// ─── MODAL ───
+function openModal(id) {
+  editId = id || null;
+  const m = document.getElementById('modal');
+  const t = document.getElementById('modal-title');
+  if (id) {
+    const e = data.find(x=>x.id===id);
+    if (!e) return;
+    t.textContent = 'แก้ไขบัญชี';
+    document.getElementById('f-name').value = e.name||'';
+    document.getElementById('f-type').value = e.type||'';
+    document.getElementById('f-daily').value = e.dailyCredits || DAILY_DEFAULT;
+    document.getElementById('f-id').value = e.flowId||'';
+    document.getElementById('f-pass').value = e.password||'';
+    document.getElementById('f-url').value = e.url||'';
+    document.getElementById('f-tags').value = (e.tags||[]).join(', ');
+    document.getElementById('f-note').value = e.note||'';
+  } else {
+    t.textContent = 'เพิ่มบัญชีใหม่';
+    ['f-name','f-type','f-id','f-pass','f-url','f-tags','f-note'].forEach(i => document.getElementById(i).value = '');
+    document.getElementById('f-daily').value = DAILY_DEFAULT;
+  }
+  m.style.display = 'flex';
+}
+function closeModal() { document.getElementById('modal').style.display = 'none'; }
+function closeModalOutside(e) { if(e.target === document.getElementById('modal')) closeModal(); }
+
+function saveEntry() {
+  const name = document.getElementById('f-name').value.trim();
+  if (!name) { showToast('กรุณาใส่ชื่อบัญชี', true); return; }
+  const flowId = document.getElementById('f-id').value.trim();
+  if (!flowId) { showToast('กรุณาใส่ Flow ID', true); return; }
+  const dailyCredits = parseInt(document.getElementById('f-daily').value) || DAILY_DEFAULT;
+
+  const existing = editId ? data.find(x=>x.id===editId) : null;
+  const entry = {
+    id: editId || uid(),
+    name, flowId,
+    type: document.getElementById('f-type').value.trim(),
+    dailyCredits,
+    credits: existing ? existing.credits : dailyCredits,
+    lastResetDate: existing ? existing.lastResetDate : todayKey(),
+    password: document.getElementById('f-pass').value,
+    url: document.getElementById('f-url').value.trim(),
+    tags: document.getElementById('f-tags').value.split(',').map(t=>t.trim()).filter(Boolean),
+    note: document.getElementById('f-note').value.trim(),
+    active: existing ? existing.active !== false : true,
+    createdAt: existing ? existing.createdAt : new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  if (editId) {
+    data = data.map(x => x.id === editId ? entry : x);
+    showToast('อัปเดตเรียบร้อย ✓');
+  } else {
+    data.unshift(entry);
+    showToast('เพิ่มบัญชีใหม่แล้ว ✓');
+  }
+  save(); closeModal(); renderCards(); updateStats();
+}
+
+// ─── CREDIT ADJUST ───
+function adjustCredit(id, delta) {
+  data = data.map(e => {
+    if (e.id !== id) return e;
+    const daily = e.dailyCredits || DAILY_DEFAULT;
+    const newVal = Math.max(0, Math.min(daily, (e.credits || 0) + delta));
+    return { ...e, credits: newVal };
+  });
+  save(); renderCards(); updateStats();
+}
+
+function setCreditInput(id, val) {
+  const e = data.find(x=>x.id===id);
+  if (!e) return;
+  const daily = e.dailyCredits || DAILY_DEFAULT;
+  const newVal = Math.max(0, Math.min(daily, parseInt(val)||0));
+  data = data.map(x => x.id===id ? {...x, credits: newVal} : x);
+  save(); renderCards(); updateStats();
+}
+
+// ─── ACTIONS ───
+function deleteEntry(id) {
+  if (!confirm('ลบบัญชีนี้ออก?')) return;
+  data = data.filter(x => x.id !== id);
+  delete visiblePasswords[id];
+  save(); renderCards(); updateStats();
+  showToast('ลบแล้ว');
+}
+function toggleActive(id) {
+  data = data.map(x => x.id===id ? {...x, active:!x.active} : x);
+  save(); renderCards(); updateStats();
+}
+function toggleVisibility(id) {
+  visiblePasswords[id] = !visiblePasswords[id];
+  renderCards();
+}
+function copyText(text, btn) {
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = '✓'; btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = '⧉'; btn.classList.remove('copied'); }, 1500);
+  });
+}
+function openUrl(id) {
+  const e = data.find(x => x.id === id);
+  if (!e) return;
+  let url = e.url || 'https://labs.google/fx/tools/flow';
+  url = url.replace('{id}', encodeURIComponent(e.flowId));
+  if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+  window.open(url, '_blank', 'noopener,noreferrer');
+}
+
+// ─── CREDIT BAR COLOR ───
+function creditColor(pct) {
+  if (pct >= 60) return 'var(--green)';
+  if (pct >= 30) return 'var(--amber)';
+  return 'var(--red)';
+}
+
+// ─── RENDER ───
+function renderCards() {
+  const q = document.getElementById('search').value.toLowerCase();
+  const filter = document.getElementById('filter-status').value;
+  const grid = document.getElementById('cred-grid');
+  let items = data.filter(e => {
+    const matchQ = !q || e.name.toLowerCase().includes(q) ||
+      e.flowId.toLowerCase().includes(q) ||
+      (e.tags||[]).some(t=>t.toLowerCase().includes(q)) ||
+      (e.type||'').toLowerCase().includes(q);
+    const matchF = filter==='all' || (filter==='active' && e.active!==false) || (filter==='inactive' && e.active===false);
+    return matchQ && matchF;
   });
 
-  // =========================
-  // LOAD LOCAL STORAGE
-  // =========================
+  if (items.length === 0) {
+    grid.innerHTML = `<div class="empty" style="grid-column:1/-1">
+      <div class="empty-icon">🔐</div>
+      <h3>${data.length===0?'ยังไม่มีบัญชี':'ไม่พบผลลัพธ์'}</h3>
+      <p>${data.length===0?'กดปุ่ม "+ เพิ่มบัญชีใหม่" เพื่อเริ่มต้น':'ลองเปลี่ยนคำค้นหา'}</p>
+    </div>`;
+    return;
+  }
 
-  useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
+  grid.innerHTML = items.map(e => {
+    const active = e.active !== false;
+    const showPass = visiblePasswords[e.id];
+    const passDisplay = showPass ? (e.password||'-') : (e.password ? '••••••••' : '-');
+    const tags = (e.tags||[]).map(t=>`<span class="tag">${t}</span>`).join('');
+    const daily = e.dailyCredits || DAILY_DEFAULT;
+    const credits = e.credits !== undefined ? e.credits : daily;
+    const pct = Math.round((credits / daily) * 100);
+    const barColor = creditColor(pct);
+    const creditPctDisplay = pct + '%';
+    const updStr = e.lastResetDate ? `รีเซ็ตล่าสุด ${e.lastResetDate}` : '';
 
-    if (saved) {
-      setAccounts(JSON.parse(saved));
-    }
-  }, []);
-
-  // =========================
-  // SAVE LOCAL STORAGE
-  // =========================
-
-  useEffect(() => {
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify(accounts)
-    );
-  }, [accounts]);
-
-  // =========================
-  // OPEN FLOW
-  // =========================
-
-  const openFlow = (account) => {
-    // เก็บ email ไว้ช่วย autofill (password ใช้ iPad Keychain)
-    localStorage.setItem(
-      "flow_last_email",
-      account.email
-    );
-
-    window.open(account.url, "_blank");
-  };
-
-  // =========================
-  // ADD ACCOUNT
-  // =========================
-
-  const addAccount = () => {
-    if (!newAccount.name || !newAccount.email)
-      return;
-
-    const account = {
-      id: Date.now(),
-      name: newAccount.name,
-      email: newAccount.email,
-      url: newAccount.url,
-      status: newAccount.status,
-    };
-
-    setAccounts((prev) => [...prev, account]);
-
-    setNewAccount({
-      name: "",
-      email: "",
-      url: "https://flow.ai/login",
-      status: "Online",
-    });
-
-    setShowAdd(false);
-  };
-
-  // =========================
-  // DELETE
-  // =========================
-
-  const deleteAccount = (id) => {
-    setAccounts((prev) =>
-      prev.filter((a) => a.id !== id)
-    );
-  };
-
-  return (
-    <div className="min-h-screen bg-black text-white p-6">
-
-      <div className="max-w-5xl mx-auto">
-
-        {/* HEADER */}
-        <h1 className="text-4xl font-bold mb-6">
-          Flow AI Dashboard (iPad Mode)
-        </h1>
-
-        {/* ADD BUTTON */}
-        <button
-          onClick={() =>
-            setShowAdd(!showAdd)
-          }
-          className="bg-white text-black px-5 py-3 rounded-2xl mb-6"
-        >
-          {showAdd
-            ? "Close"
-            : "Add Account"}
-        </button>
-
-        {/* ADD FORM */}
-        {showAdd && (
-          <div className="bg-zinc-900 p-5 rounded-2xl mb-6 space-y-3">
-
-            <input
-              placeholder="Account Name"
-              value={newAccount.name}
-              onChange={(e) =>
-                setNewAccount({
-                  ...newAccount,
-                  name: e.target.value,
-                })
-              }
-              className="w-full p-3 rounded-xl bg-black border border-zinc-700"
-            />
-
-            <input
-              placeholder="Email"
-              value={newAccount.email}
-              onChange={(e) =>
-                setNewAccount({
-                  ...newAccount,
-                  email: e.target.value,
-                })
-              }
-              className="w-full p-3 rounded-xl bg-black border border-zinc-700"
-            />
-
-            <button
-              onClick={addAccount}
-              className="bg-white text-black px-5 py-2 rounded-xl"
-            >
-              Save
-            </button>
-
-          </div>
-        )}
-
-        {/* ACCOUNTS */}
-        <div className="grid md:grid-cols-2 gap-5">
-
-          {accounts.map((acc) => (
-            <div
-              key={acc.id}
-              className="bg-zinc-900 p-5 rounded-2xl"
-            >
-
-              <h2 className="text-xl font-bold">
-                {acc.name}
-              </h2>
-
-              <p className="text-zinc-400 text-sm mt-1">
-                {acc.email}
-              </p>
-
-              <p className="text-green-400 mt-2 text-sm">
-                {acc.status}
-              </p>
-
-              <div className="flex gap-3 mt-4">
-
-                <button
-                  onClick={() =>
-                    openFlow(acc)
-                  }
-                  className="bg-white text-black px-4 py-2 rounded-xl"
-                >
-                  Open
-                </button>
-
-                <button
-                  onClick={() =>
-                    deleteAccount(acc.id)
-                  }
-                  className="bg-red-500/20 text-red-400 px-4 py-2 rounded-xl"
-                >
-                  Delete
-                </button>
-
-              </div>
-
-            </div>
-          ))}
-
+    return `<div class="cred-card ${active?'active':'inactive'}" id="card-${e.id}">
+      <div class="card-header">
+        <div class="card-title-wrap">
+          <div class="card-name" title="${e.name}">${e.name}</div>
+          <div class="card-label">${e.type||'Google Flow'}</div>
         </div>
-
-        {/* INFO */}
-        <div className="mt-10 text-zinc-500 text-sm">
-          Password จะถูกเก็บใน iPad Browser (iCloud Keychain / Autofill)
-          ไม่ถูกเก็บใน Dashboard
-        </div>
-
+        <div class="status-dot ${active?'on':'off'}"></div>
       </div>
 
-    </div>
-  );
+      <!-- CREDIT BOX -->
+      <div class="credit-box">
+        <div class="credit-row">
+          <span class="credit-label">🎬 เครดิตคงเหลือ</span>
+          <div class="credit-nums">
+            <span class="credit-val" style="color:${barColor}">${credits}</span>
+            <span class="credit-max">/ ${daily}</span>
+          </div>
+        </div>
+        <div class="credit-track">
+          <div class="credit-fill" style="width:${pct}%;background:${barColor}"></div>
+        </div>
+        <div class="credit-controls">
+          <button class="credit-btn" onclick="adjustCredit('${e.id}',-10)" title="-10">-10</button>
+          <button class="credit-btn" onclick="adjustCredit('${e.id}',-1)" title="-1">-1</button>
+          <input class="credit-input" type="number" value="${credits}" min="0" max="${daily}"
+            onchange="setCreditInput('${e.id}',this.value)"
+            onblur="setCreditInput('${e.id}',this.value)">
+          <button class="credit-btn" onclick="adjustCredit('${e.id}',1)" title="+1">+1</button>
+          <button class="credit-btn" onclick="adjustCredit('${e.id}',10)" title="+10">+10</button>
+        </div>
+        ${updStr ? `<div class="credit-updated" style="margin-top:6px">${updStr}</div>` : ''}
+      </div>
+
+      <div class="field-row">
+        <span class="field-label">ID</span>
+        <span class="field-val" title="${e.flowId}">${e.flowId}</span>
+        <button class="copy-btn" onclick="copyText('${e.flowId}',this)" title="คัดลอก">⧉</button>
+      </div>
+      <div class="field-row">
+        <span class="field-label">Pass</span>
+        <span class="field-val ${showPass?'':'masked'}">${passDisplay}</span>
+        ${e.password?`<button class="toggle-eye" onclick="toggleVisibility('${e.id}')">${showPass?'🙈':'👁'}</button>`:''}
+        ${e.password?`<button class="copy-btn" onclick="copyText('${e.password}',this)">⧉</button>`:''}
+      </div>
+
+      ${e.note?`<div style="font-size:12px;color:var(--text-muted);margin-top:8px;padding:8px 10px;background:var(--surface);border-radius:6px;border:1px solid var(--border)">${e.note}</div>`:''}
+      ${tags?`<div class="card-tags">${tags}</div>`:''}
+
+      <div class="card-actions">
+        <button class="act-btn open-btn" onclick="openUrl('${e.id}')">🌐 เปิด Flow</button>
+        <button class="act-btn" onclick="toggleActive('${e.id}')">${active?'⏸ ปิด':'▶ เปิด'}</button>
+        <button class="act-btn" onclick="openModal('${e.id}')">✏ แก้ไข</button>
+        <button class="act-btn danger" onclick="deleteEntry('${e.id}')">🗑 ลบ</button>
+      </div>
+    </div>`;
+  }).join('');
 }
+
+// ─── STATS ───
+function updateStats() {
+  const total = data.length;
+  const active = data.filter(e=>e.active!==false).length;
+  const inactive = total - active;
+  const totalCredits = data.reduce((s,e) => s + (e.credits !== undefined ? e.credits : (e.dailyCredits||DAILY_DEFAULT)), 0);
+  const maxCredits = data.reduce((s,e) => s + (e.dailyCredits||DAILY_DEFAULT), 0);
+  const usedCredits = maxCredits - totalCredits;
+  const pct = maxCredits > 0 ? Math.round((usedCredits/maxCredits)*100) : 0;
+
+  document.getElementById('stat-total').textContent = total;
+  document.getElementById('stat-active').textContent = active;
+  document.getElementById('stat-inactive').textContent = inactive;
+  document.getElementById('stat-credits').textContent = totalCredits;
+  document.getElementById('nav-count').textContent = total + ' accounts';
+
+  // Summary bar
+  document.getElementById('cs-total').innerHTML = `${totalCredits} <span>เครดิต</span>`;
+  document.getElementById('cs-used-pct').textContent = pct + '%';
+  document.getElementById('cs-used-num').textContent = `ใช้ ${usedCredits}`;
+  document.getElementById('cs-max-num').textContent = `สูงสุด ${maxCredits}`;
+  const fill = document.getElementById('cs-bar-fill');
+  fill.style.width = pct + '%';
+  fill.style.background = creditColor(100 - pct);
+
+  // Countdown to midnight
+  updateResetCountdown();
+}
+
+function updateResetCountdown() {
+  const now = new Date();
+  const midnight = new Date(now);
+  midnight.setHours(24,0,0,0);
+  const diff = midnight - now;
+  const h = Math.floor(diff/3600000);
+  const m = Math.floor((diff%3600000)/60000);
+  const s = Math.floor((diff%60000)/1000);
+  document.getElementById('cs-reset-time').textContent =
+    `↺ รีเซ็ตในอีก ${h}ชม. ${m}น. ${s}ว.`;
+}
+
+// ─── EXPORT / IMPORT ───
+function exportData() {
+  const blob = new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `flowai_vault_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  showToast('Export เรียบร้อย ✓');
+}
+function importData(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const imported = JSON.parse(e.target.result);
+      if (!Array.isArray(imported)) throw new Error();
+      const existing = new Set(data.map(x=>x.id));
+      let added = 0;
+      imported.forEach(item => { if(!existing.has(item.id)){data.unshift(item);added++;} });
+      save(); renderCards(); updateStats();
+      showToast(`Import แล้ว ${added} รายการ ✓`);
+    } catch(err) { showToast('ไฟล์ไม่ถูกต้อง', true); }
+  };
+  reader.readAsText(file);
+  event.target.value='';
+}
+
+// ─── TOAST ───
+function showToast(msg, err) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast' + (err?' error':'');
+  setTimeout(()=>t.classList.add('show'),10);
+  setTimeout(()=>t.classList.remove('show'),2500);
+}
+
+// ─── INIT ───
+load();
+checkAndResetCredits();
+renderCards();
+updateStats();
+
+// Live countdown every second
+setInterval(() => { updateResetCountdown(); }, 1000);
+
+// Auto-check reset at midnight
+setInterval(() => {
+  checkAndResetCredits();
+  renderCards();
+  updateStats();
+}, 60000);
+
+document.addEventListener('keydown', e => {
+  if (e.key==='Escape') closeModal();
+  if ((e.ctrlKey||e.metaKey) && e.key==='k') { e.preventDefault(); document.getElementById('search').focus(); }
+});
+</script>
+</body>
+</html>
